@@ -1,0 +1,41 @@
+/* src/index.css */
+
+/* This is the main stylesheet for the application. */
+/* It includes base styles and global rules. */
+
+/* Apply a smooth scroll behavior for a better user experience. */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Set basic styles for the body to create a consistent look. */
+body {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  background-color: #010915; /* A dark, deep blue background color */
+  font-family: 'Montserrat', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Base Tailwind CSS classes for the application's root div. */
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* General button styling for consistent hover effects. */
+button {
+  transition: all 0.3s ease-in-out;
+}
+
+/* Utility for hiding scrollbars on elements, if needed. */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
