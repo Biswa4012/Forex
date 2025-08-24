@@ -24,11 +24,15 @@ const App = () => {
   // State for the new Gemini-powered insight modal
   const [isInsightModalOpen, setIsInsightModalOpen] = useState(false);
   const [selectedPairForInsight, setSelectedPairForInsight] = useState(null);
-  
+  // New state to store created alerts
+  const [activeAlerts, setActiveAlerts] = useState([]);
+  // New state to manage visible notifications (toast messages)
+  const [triggeredAlerts, setTriggeredAlerts] = useState([]);
+
   const handleMouseMove = (e) => {
     setMousePosition({ x: e.clientX, y: e.clientY });
   };
-  
+
   // Simulate live price changes with a mock API update
   useEffect(() => {
     const updatePrices = () => {
@@ -51,6 +55,36 @@ const App = () => {
     return () => clearInterval(interval); // Cleanup on component unmount
   }, []);
 
+  // Effect to check for triggered alerts every time prices update
+  useEffect(() => {
+    if (activeAlerts.length > 0) {
+      activeAlerts.forEach(alert => {
+        const currentPrice = forexPairs.find(p => p.name === alert.pair.name)?.price;
+        if (currentPrice) {
+          const isTriggered = 
+            (alert.direction === 'above' && currentPrice >= alert.alertPrice) ||
+            (alert.direction === 'below' && currentPrice <= alert.alertPrice);
+
+          if (isTriggered) {
+            // Check if this alert has already been triggered to prevent duplicates
+            const isAlreadyTriggered = triggeredAlerts.some(t => t.id === alert.id);
+            if (!isAlreadyTriggered) {
+              const notification = {
+                id: alert.id,
+                message: `${alert.pair.name} has crossed your alert price of ${alert.alertPrice}!`,
+                type: 'success',
+              };
+              setTriggeredAlerts(prev => [...prev, notification]);
+
+              // Remove the triggered alert from the active list
+              setActiveAlerts(prev => prev.filter(a => a.id !== alert.id));
+            }
+          }
+        }
+      });
+    }
+  }, [forexPairs, activeAlerts, triggeredAlerts]);
+
   // Effect for mouse follower
   useEffect(() => {
     window.addEventListener('mousemove', handleMouseMove);
@@ -62,7 +96,7 @@ const App = () => {
     setSelectedPair(pair);
     setIsAlertModalOpen(true);
   };
-  
+
   // Function to close the alert modal
   const closeAlertModal = () => {
     setIsAlertModalOpen(false);
@@ -74,11 +108,23 @@ const App = () => {
     setSelectedPairForInsight(pair);
     setIsInsightModalOpen(true);
   };
-  
+
   // Function to close the insight modal
   const closeInsightModal = () => {
     setIsInsightModalOpen(false);
     setSelectedPairForInsight(null);
+  };
+  
+  // Function to add a new alert
+  const addAlert = (pair, alertPrice, direction) => {
+    const newAlert = {
+      id: Date.now(), // Unique ID for each alert
+      pair,
+      alertPrice,
+      direction,
+    };
+    setActiveAlerts(prev => [...prev, newAlert]);
+    closeAlertModal();
   };
 
   return (
@@ -126,6 +172,7 @@ const App = () => {
         <AlertModal
           pair={selectedPair}
           onClose={closeAlertModal}
+          onSaveAlert={addAlert}
         />
       )}
 
@@ -136,6 +183,18 @@ const App = () => {
           onClose={closeInsightModal}
         />
       )}
+
+      {/* New Notifications Container */}
+      <div className="fixed top-0 inset-x-0 z-50 p-4 flex flex-col items-center pointer-events-none">
+        {triggeredAlerts.map(alert => (
+          <NotificationToast
+            key={alert.id}
+            message={alert.message}
+            type={alert.type}
+            onClose={() => setTriggeredAlerts(prev => prev.filter(a => a.id !== alert.id))}
+          />
+        ))}
+      </div>
     </div>
   );
 };
@@ -223,7 +282,7 @@ const TradingCard = ({ pair, onAddAlert, onGetInsight }) => {
 };
 
 // Alert Modal Component
-const AlertModal = ({ pair, onClose }) => {
+const AlertModal = ({ pair, onClose, onSaveAlert }) => {
   const [alertPrice, setAlertPrice] = useState(pair.price);
   const [direction, setDirection] = useState('above');
   const modalRef = useRef(null);
@@ -241,8 +300,7 @@ const AlertModal = ({ pair, onClose }) => {
   }, []);
 
   const handleCreateAlert = () => {
-    console.log(`Alert created for ${pair.name}: Price goes ${direction} ${alertPrice}`);
-    onClose();
+    onSaveAlert(pair, parseFloat(alertPrice), direction);
   };
 
   const handlePriceChange = (increment) => {
@@ -354,9 +412,9 @@ const InsightModal = ({ pair, onClose }) => {
         setLoading(true);
         setError(null);
         setInsightText('');
-        
+
         const prompt = `Provide a concise, high-level market summary for the ${pairName} trading pair. Use simple language and focus on key factors and general market sentiment. Keep it brief, under 100 words.`;
-        
+
         let chatHistory = [];
         chatHistory.push({ role: "user", parts: [{ text: prompt }] });
         const payload = { contents: chatHistory };
@@ -374,7 +432,7 @@ const InsightModal = ({ pair, onClose }) => {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payload)
             });
-            
+
             if (response.status === 429 && retries < maxRetries) {
               retries++;
               const delay = baseDelay * Math.pow(2, retries - 1);
@@ -385,9 +443,9 @@ const InsightModal = ({ pair, onClose }) => {
             if (!response.ok) {
               throw new Error(`API call failed with status: ${response.status}`);
             }
-            
+
             const result = await response.json();
-            
+
             if (result.candidates && result.candidates.length > 0 &&
                 result.candidates[0].content && result.candidates[0].content.parts &&
                 result.candidates[0].content.parts.length > 0) {
@@ -428,19 +486,19 @@ const InsightModal = ({ pair, onClose }) => {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-filter backdrop-blur-sm"></div>
-            <div 
+            <div
               ref={modalRef}
               className="relative p-8 rounded-2xl bg-white bg-opacity-10 backdrop-filter backdrop-blur-lg border border-white border-opacity-20 shadow-xl w-full max-w-sm transform scale-100 transition-all duration-300"
             >
                 <h3 className="text-xl font-bold text-gray-200 mb-4">Market Insight for {pair?.name}</h3>
-                
+
                 {loading && (
                     <div className="flex justify-center items-center h-40">
                       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-400"></div>
                       <p className="ml-4 text-gray-300">Generating insight...</p>
                     </div>
                 )}
-                
+
                 {error && (
                     <div className="text-red-400 text-center">{error}</div>
                 )}
@@ -462,6 +520,47 @@ const InsightModal = ({ pair, onClose }) => {
             </div>
         </div>
     );
+};
+
+// New Notification Toast Component
+const NotificationToast = ({ message, type, onClose }) => {
+  const [isVisible, setIsVisible] = useState(true);
+
+  useEffect(() => {
+    // Hide the notification after 5 seconds
+    const timer = setTimeout(() => {
+      setIsVisible(false);
+      setTimeout(() => onClose(), 500); // Wait for fade-out animation
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  const bgColor = type === 'success' ? 'from-green-500 to-green-600' : 'from-red-500 to-red-600';
+
+  return (
+    <div
+      className={`relative mt-4 w-full max-w-sm p-4 rounded-lg shadow-lg text-white font-medium
+                  bg-gradient-to-r ${bgColor} transform transition-all duration-500
+                  ${isVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`}
+    >
+      <div className="flex items-start">
+        <div className="mr-3">
+          {/* Icon based on notification type */}
+          {type === 'success' && (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-8.99"/><path d="M12 2v10"/><path d="M16 16l4 4"/><path d="M20 20l-4-4"/></svg>
+          )}
+          {/* Add more icons for other types if needed */}
+        </div>
+        <div className="flex-1">
+          <p>{message}</p>
+        </div>
+        <button onClick={onClose} className="ml-auto -mt-2 -mr-2 text-white opacity-70 hover:opacity-100 transition-opacity">
+          &times;
+        </button>
+      </div>
+    </div>
+  );
 };
 
 export default App;
