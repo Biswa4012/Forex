@@ -1,3 +1,4 @@
+// src/App.jsx
 import React, { useState, useEffect, useRef } from 'react';
 
 // Main App component
@@ -20,11 +21,10 @@ const App = () => {
   // State to manage the alert modal visibility and the selected pair for the modal
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
   const [selectedPair, setSelectedPair] = useState(null);
+  // State for the new Gemini-powered insight modal
+  const [isInsightModalOpen, setIsInsightModalOpen] = useState(false);
+  const [selectedPairForInsight, setSelectedPairForInsight] = useState(null);
   
-  // Use a ref to store the request ID for the animation loop
-  const requestRef = useRef();
-
-  // Handle mouse movement for the gradient follower
   const handleMouseMove = (e) => {
     setMousePosition({ x: e.clientX, y: e.clientY });
   };
@@ -34,10 +34,9 @@ const App = () => {
     const updatePrices = () => {
       setForexPairs(currentPairs => 
         currentPairs.map(pair => {
-          // Simulate small random fluctuations
           const fluctuation = (Math.random() - 0.5) * 0.001 * pair.price;
           const newPrice = pair.price + fluctuation;
-          const change = Math.abs(fluctuation).toFixed(4); // Use absolute value for change display
+          const change = Math.abs(fluctuation).toFixed(4);
           return {
             ...pair,
             price: parseFloat(newPrice.toFixed(4)),
@@ -68,6 +67,18 @@ const App = () => {
   const closeAlertModal = () => {
     setIsAlertModalOpen(false);
     setSelectedPair(null);
+  };
+
+  // Function to open the insight modal with the selected pair
+  const openInsightModal = (pair) => {
+    setSelectedPairForInsight(pair);
+    setIsInsightModalOpen(true);
+  };
+  
+  // Function to close the insight modal
+  const closeInsightModal = () => {
+    setIsInsightModalOpen(false);
+    setSelectedPairForInsight(null);
   };
 
   return (
@@ -104,6 +115,7 @@ const App = () => {
               key={pair.name}
               pair={pair}
               onAddAlert={openAlertModal}
+              onGetInsight={openInsightModal}
             />
           ))}
         </div>
@@ -117,64 +129,26 @@ const App = () => {
         />
       )}
 
-      {/* Custom Styles for animations and fonts */}
-      <style>
-        {`
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap');
-        .font-sans {
-          font-family: 'Montserrat', sans-serif;
-        }
-
-        @keyframes bg-flow {
-          0% { transform: scale(1.1) translate(0%, 0%); }
-          50% { transform: scale(1.5) translate(10%, 10%); }
-          100% { transform: scale(1.1) translate(0%, 0%); }
-        }
-        .animate-bg-flow::before {
-          animation: bg-flow 30s ease-in-out infinite alternate;
-        }
-
-        @keyframes blob {
-          0% { transform: scale(1) translate(0, 0); }
-          33% { transform: scale(1.1) translate(30px, -50px); }
-          66% { transform: scale(0.9) translate(-20px, 20px); }
-          100% { transform: scale(1) translate(0, 0); }
-        }
-        .animate-blob {
-          animation: blob 10s linear infinite alternate;
-        }
-
-        @keyframes pulse-slow {
-            0%, 100% { opacity: 0.7; transform: scale(1.0) }
-            50% { opacity: 0.85; transform: scale(1.1) }
-        }
-        .animate-pulse-slow {
-            animation: pulse-slow 5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-        }
-        
-        /* Hide the native number input arrows */
-        input[type="number"]::-webkit-inner-spin-button, 
-        input[type="number"]::-webkit-outer-spin-button { 
-          -webkit-appearance: none;
-          margin: 0;
-        }
-        input[type="number"] {
-          -moz-appearance: textfield; /* Firefox */
-        }
-        `}
-      </style>
+      {/* Gemini-powered Insight Modal */}
+      {isInsightModalOpen && (
+        <InsightModal
+          pair={selectedPairForInsight}
+          onClose={closeInsightModal}
+        />
+      )}
     </div>
   );
 };
 
 // Reusable Trading Card Component
-const TradingCard = ({ pair, onAddAlert }) => {
+const TradingCard = ({ pair, onAddAlert, onGetInsight }) => {
   const { name, price, change, up } = pair;
   const changeColor = up ? 'text-green-400' : 'text-red-400';
   const arrowIcon = up ? '▲' : '▼'; // Unicode arrow icons
 
   // State for the alert button hover to show the slide-out box
   const [isHoveringBell, setIsHoveringBell] = useState(false);
+  const [isHoveringStar, setIsHoveringStar] = useState(false);
 
   return (
     <div className="relative group w-full p-6 rounded-2xl bg-white bg-opacity-10 backdrop-filter backdrop-blur-lg border border-white border-opacity-20 shadow-lg transform transition-all duration-300 hover:scale-[1.03]">
@@ -196,16 +170,32 @@ const TradingCard = ({ pair, onAddAlert }) => {
         </div>
       </div>
 
-      {/* Add Alert Button section */}
-      <div className="mt-6 flex items-center justify-end">
+      {/* Action Buttons section */}
+      <div className="mt-6 flex items-center justify-end space-x-2">
+        {/* Insight Button */}
         <div className="relative">
-          {/* Slide-out info box on hover */}
+          {isHoveringStar && (
+            <div className="absolute right-full top-1/2 transform -translate-y-1/2 mr-4 px-4 py-2 rounded-lg bg-gradient-to-r from-purple-400 to-fuchsia-500 text-white text-sm whitespace-nowrap opacity-100 transition-opacity duration-300">
+              Get Market Insight
+            </div>
+          )}
+          <button
+            onClick={() => onGetInsight(pair)}
+            onMouseEnter={() => setIsHoveringStar(true)}
+            onMouseLeave={() => setIsHoveringStar(false)}
+            className="p-3 rounded-full bg-white bg-opacity-20 backdrop-filter backdrop-blur-sm transition-all duration-300 hover:bg-opacity-30 hover:scale-110"
+          >
+            <span className="text-xl">✨</span>
+          </button>
+        </div>
+
+        {/* Add Alert Button */}
+        <div className="relative">
           {isHoveringBell && (
             <div className="absolute right-full top-1/2 transform -translate-y-1/2 mr-4 px-4 py-2 rounded-lg bg-gradient-to-r from-teal-400 to-cyan-500 text-white text-sm whitespace-nowrap opacity-100 transition-opacity duration-300">
               Add Alert
             </div>
           )}
-          
           <button
             onClick={() => onAddAlert(pair)}
             onMouseEnter={() => setIsHoveringBell(true)}
@@ -251,9 +241,8 @@ const AlertModal = ({ pair, onClose }) => {
   }, []);
 
   const handleCreateAlert = () => {
-    // Here you would typically send data to a backend or handle it locally
     console.log(`Alert created for ${pair.name}: Price goes ${direction} ${alertPrice}`);
-    onClose(); // Close modal after action
+    onClose();
   };
 
   const handlePriceChange = (increment) => {
@@ -353,5 +342,126 @@ const AlertModal = ({ pair, onClose }) => {
   );
 };
 
-export default App;
+// New Gemini-powered Modal
+const InsightModal = ({ pair, onClose }) => {
+    const [insightText, setInsightText] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const modalRef = useRef(null);
 
+    // Function to call the Gemini API
+    const getMarketInsight = async (pairName) => {
+        setLoading(true);
+        setError(null);
+        setInsightText('');
+        
+        const prompt = `Provide a concise, high-level market summary for the ${pairName} trading pair. Use simple language and focus on key factors and general market sentiment. Keep it brief, under 100 words.`;
+        
+        let chatHistory = [];
+        chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+        const payload = { contents: chatHistory };
+        const apiKey = "";
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+        let retries = 0;
+        const maxRetries = 3;
+        const baseDelay = 1000;
+
+        const fetchData = async () => {
+          try {
+            const response = await fetch(apiUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            
+            if (response.status === 429 && retries < maxRetries) {
+              retries++;
+              const delay = baseDelay * Math.pow(2, retries - 1);
+              await new Promise(res => setTimeout(res, delay));
+              return fetchData();
+            }
+
+            if (!response.ok) {
+              throw new Error(`API call failed with status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.candidates && result.candidates.length > 0 &&
+                result.candidates[0].content && result.candidates[0].content.parts &&
+                result.candidates[0].content.parts.length > 0) {
+              const text = result.candidates[0].content.parts[0].text;
+              setInsightText(text);
+            } else {
+              setError('Failed to generate insight. Please try again.');
+            }
+          } catch (e) {
+            setError('Error fetching data. ' + e.message);
+          } finally {
+            setLoading(false);
+          }
+        };
+
+        fetchData();
+    };
+
+    useEffect(() => {
+        // Fetch insight as soon as the modal opens
+        if (pair) {
+            getMarketInsight(pair.name);
+        }
+    }, [pair]);
+
+    // Close the modal when clicking outside
+    const handleOutsideClick = (event) => {
+      if (modalRef.current && !modalRef.current.contains(event.target)) {
+        onClose();
+      }
+    };
+
+    useEffect(() => {
+      document.addEventListener('mousedown', handleOutsideClick);
+      return () => document.removeEventListener('mousedown', handleOutsideClick);
+    }, []);
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-filter backdrop-blur-sm"></div>
+            <div 
+              ref={modalRef}
+              className="relative p-8 rounded-2xl bg-white bg-opacity-10 backdrop-filter backdrop-blur-lg border border-white border-opacity-20 shadow-xl w-full max-w-sm transform scale-100 transition-all duration-300"
+            >
+                <h3 className="text-xl font-bold text-gray-200 mb-4">Market Insight for {pair?.name}</h3>
+                
+                {loading && (
+                    <div className="flex justify-center items-center h-40">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-400"></div>
+                      <p className="ml-4 text-gray-300">Generating insight...</p>
+                    </div>
+                )}
+                
+                {error && (
+                    <div className="text-red-400 text-center">{error}</div>
+                )}
+
+                {insightText && !loading && (
+                    <div className="text-gray-300 text-sm leading-relaxed max-h-60 overflow-y-auto">
+                        {insightText}
+                    </div>
+                )}
+
+                <div className="mt-6 text-right">
+                    <button
+                        onClick={onClose}
+                        className="py-2 px-4 rounded-lg text-sm font-medium text-gray-300 bg-gray-700 bg-opacity-40 hover:bg-opacity-50 transition-all duration-300"
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default App;
