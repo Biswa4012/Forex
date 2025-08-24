@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Quantum Markets</title>
+    <!-- Add Tailwind CSS from CDN, as Vite doesn't automatically include it this way -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      /* Custom styles for animations and fonts */
+      @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap');
+      .font-sans {
+        font-family: 'Montserrat', sans-serif;
+      }
+      @keyframes bg-flow {
+        0% { transform: scale(1.1) translate(0%, 0%); }
+        50% { transform: scale(1.5) translate(10%, 10%); }
+        100% { transform: scale(1.1) translate(0%, 0%); }
+      }
+      .animate-bg-flow::before {
+        animation: bg-flow 30s ease-in-out infinite alternate;
+      }
+      @keyframes blob {
+        0% { transform: scale(1) translate(0, 0); }
+        33% { transform: scale(1.1) translate(30px, -50px); }
+        66% { transform: scale(0.9) translate(-20px, 20px); }
+        100% { transform: scale(1) translate(0, 0); }
+      }
+      .animate-blob {
+        animation: blob 10s linear infinite alternate;
+      }
+      @keyframes pulse-slow {
+        0%, 100% { opacity: 0.7; transform: scale(1.0) }
+        50% { opacity: 0.85; transform: scale(1.1) }
+      }
+      .animate-pulse-slow {
+        animation: pulse-slow 5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+      /* Hide the native number input arrows */
+      input[type="number"]::-webkit-inner-spin-button, 
+      input[type="number"]::-webkit-outer-spin-button { 
+        -webkit-appearance: none;
+        margin: 0;
+      }
+      input[type="number"] {
+        -moz-appearance: textfield; /* Firefox */
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
