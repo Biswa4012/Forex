@@ -29,29 +29,73 @@ const App = () => {
   // New state to manage visible notifications (toast messages)
   const [triggeredAlerts, setTriggeredAlerts] = useState([]);
 
+  // Ref to store previous prices to calculate the change
+  const previousPricesRef = useRef({});
+
   const handleMouseMove = (e) => {
     setMousePosition({ x: e.clientX, y: e.clientY });
   };
 
-  // Simulate live price changes with a mock API update
+  // Fetch real-time prices from an external API
   useEffect(() => {
-    const updatePrices = () => {
-      setForexPairs(currentPairs => 
-        currentPairs.map(pair => {
-          const fluctuation = (Math.random() - 0.5) * 0.001 * pair.price;
-          const newPrice = pair.price + fluctuation;
-          const change = Math.abs(fluctuation).toFixed(4);
-          return {
-            ...pair,
-            price: parseFloat(newPrice.toFixed(4)),
-            change: parseFloat(change),
-            up: fluctuation >= 0
-          };
-        })
-      );
+    const fetchPrices = async () => {
+      // Free forex APIs have limitations and are not as fast as real trading APIs.
+      // This is a free, public API and might not be suitable for high-frequency trading.
+      const API_URL = 'https://api.exchangerate.host/latest?base=USD&symbols=EUR,GBP,AUD,NZD,CAD,CHF,JPY';
+      
+      try {
+        const response = await fetch(API_URL);
+        if (!response.ok) {
+          throw new Error('Failed to fetch forex rates');
+        }
+        const data = await response.json();
+        
+        // Update prices based on fetched data
+        setForexPairs(currentPairs => {
+          const updatedPairs = currentPairs.map(pair => {
+            let newPrice;
+            if (pair.name === 'XAU/USD') {
+              // Gold (XAU) is not a standard currency pair, keeping mock data for now.
+              const fluctuation = (Math.random() - 0.5) * 5;
+              newPrice = pair.price + fluctuation;
+            } else if (data.rates[pair.name.split('/')[0]] && data.rates[pair.name.split('/')[1]]) {
+              // Calculate price based on the cross-rate
+              newPrice = data.rates[pair.name.split('/')[1]] / data.rates[pair.name.split('/')[0]];
+            } else if (data.rates[pair.name.split('/')[1]]) {
+              // If the base currency is USD (e.g. EUR/USD), the price is the inverse of the fetched rate
+              newPrice = 1 / data.rates[pair.name.split('/')[1]];
+            } else if (data.rates[pair.name.split('/')[0]]) {
+              // If the quote currency is USD (e.g. USD/CAD), the price is the fetched rate
+              newPrice = data.rates[pair.name.split('/')[0]];
+            } else {
+              newPrice = pair.price;
+            }
+
+            // Get previous price for comparison
+            const previousPrice = previousPricesRef.current[pair.name] || newPrice;
+            const change = Math.abs(newPrice - previousPrice).toFixed(4);
+            const up = newPrice >= previousPrice;
+            
+            // Store the new price for the next update
+            previousPricesRef.current[pair.name] = newPrice;
+
+            return {
+              ...pair,
+              price: parseFloat(newPrice.toFixed(4)),
+              change: parseFloat(change),
+              up: up
+            };
+          });
+          return updatedPairs;
+        });
+        
+      } catch (error) {
+        console.error("Error fetching forex data:", error);
+      }
     };
 
-    const interval = setInterval(updatePrices, 3000); // Update every 3 seconds
+    fetchPrices();
+    const interval = setInterval(fetchPrices, 3000); // Update every 3 seconds
     return () => clearInterval(interval); // Cleanup on component unmount
   }, []);
 
